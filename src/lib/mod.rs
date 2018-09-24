@@ -117,20 +117,22 @@ impl GenomePointer {
     }
 }
 
-struct VMState {
+struct VMState<'a> {
     output_pointer: GenomePointer,
     input_pointer: GenomePointer,
     register: u8,
     output: Genome,
+    input: &'a Genome,
     facing: Facing,
     running: bool,
     loop_stack: Vec<GenomePointer>,
     loop_stack_pointer: usize,
 }
 
-impl VMState {
-    pub fn new() -> VMState {
+impl<'a> VMState<'a> {
+    pub fn new(input: &'a Genome) -> VMState<'a> {
         VMState {
+            input,
             output_pointer: GenomePointer::new(0, true),
             input_pointer: GenomePointer::new(0, true),
             register: 0,
@@ -149,6 +151,17 @@ impl VMState {
                 self.output_pointer.is_lower_byte = true;
                 self.facing = Facing::Left;
                 self.register = 0;
+            },
+            Instruction::Fwd => self.output_pointer.next(),
+            Instruction::Back => self.output_pointer.prev(),
+            Instruction::Inc => {
+                self.register= (self.register+ 1) & 0x0f;
+            },
+            Instruction::Dec => {
+                self.register= (self.register- 1) & 0x0f;
+            },
+            Instruction::ReadGenome => {
+                self.register= self.output_pointer.get(self.input);
             },
             _ => panic!("Not implemented yet"),
         }
