@@ -124,11 +124,38 @@ struct VMState {
     output: Genome,
     facing: Facing,
     running: bool,
-    loop_stack: [GenomePointer; POND_DEPTH],
+    loop_stack: Vec<GenomePointer>,
     loop_stack_pointer: usize,
 }
 
-enum Instruction {
+impl VMState {
+    pub fn new() -> VMState {
+        VMState {
+            output_pointer: GenomePointer::new(0, true),
+            input_pointer: GenomePointer::new(0, true),
+            register: 0,
+            output: Genome::new(),
+            facing: Facing::Left,
+            running: true,
+            loop_stack: Vec::with_capacity(POND_DEPTH),
+            loop_stack_pointer: 0,
+        }
+    }
+
+    pub fn execute(&mut self, instruction: Instruction) {
+        match instruction {
+            Instruction::Zero => {
+                self.output_pointer.array_pointer = 0;
+                self.output_pointer.is_lower_byte = true;
+                self.facing = Facing::Left;
+                self.register = 0;
+            },
+            _ => panic!("Not implemented yet"),
+        }
+    }
+}
+
+pub enum Instruction {
     Zero,
     Fwd,
     Back,
