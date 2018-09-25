@@ -138,7 +138,7 @@ pub struct VMState<'a> {
     facing: Facing,
     running: bool,
     loop_stack: Vec<GenomePointer>,
-    loop_stack_pointer: usize,
+    loop_stack_depth: usize,
 }
 
 impl<'a> VMState<'a> {
@@ -152,7 +152,7 @@ impl<'a> VMState<'a> {
             facing: Facing::Left,
             running: true,
             loop_stack: Vec::with_capacity(POND_DEPTH),
-            loop_stack_pointer: 0,
+            loop_stack_depth: 0,
         }
     }
 
@@ -160,15 +160,23 @@ impl<'a> VMState<'a> {
         let mut next_pointer = self.input_pointer.clone();
         next_pointer.next();
         while self.cell.energy > 0 && self.running {
-            let instruction = self.cell.genome.get(&self.input_pointer);
+            let instruction_byte = self.cell.genome.get(&self.input_pointer);
             let next = self.cell.genome.get(&next_pointer);
-            self.execute_instruction(Instruction::from((instruction, next)));
-            self.cell.energy -= 1;
             self.input_pointer.next();
             next_pointer.next();
+            let instruction = Instruction::from((instruction_byte, next));
+            if self.loop_stack_depth == 0 {
+                self.execute_instruction(instruction);
+            } else if instruction == Instruction::Loop {
+                self.loop_stack_depth += 1;
+            } else if instruction == Instruction::Rep {
+                self.loop_stack_depth -= 1;
+            }
+            self.cell.energy -= 1;
         }
     }
 
+    #[inline]
     fn execute_instruction(&mut self, instruction: Instruction) {
         match instruction {
             Instruction::Zero => {
@@ -197,11 +205,29 @@ impl<'a> VMState<'a> {
             Instruction::WriteGenome => {
                 self.output.set(&self.output_pointer, self.register);
             },
+            Instruction::Loop => {
+                if self.register == 0 {
+                    self.loop_stack_depth = 1;
+                } else {
+                    self.loop_stack.push(self.input_pointer.clone());
+                }
+            },
+            Instruction::Rep => {
+                if let Some(mut input_pointer) = self.loop_stack.pop() {
+                    if self.register > 0 {
+                        self.input_pointer = input_pointer;
+                    }
+                }
+            },
+            Instruction::Stop => {
+                self.running = false;
+            },
             _ => panic!("Not implemented yet"),
         }
     }
 }
 
+#[derive(PartialEq)]
 enum Instruction {
     Zero,
     Fwd,
