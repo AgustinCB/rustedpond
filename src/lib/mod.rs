@@ -41,6 +41,26 @@ impl Genome {
         }
         Genome(genome)
     }
+
+    #[inline]
+    pub(crate) fn get(&self, pointer: &GenomePointer) -> u8 {
+        if pointer.is_lower_byte {
+            (self.0[pointer.array_pointer] & 0xf) as u8
+        } else {
+            ((self.0[pointer.array_pointer] >> 4) & 0xf) as u8
+        }
+    }
+
+    #[inline]
+    pub(crate) fn set(&mut self, pointer: &GenomePointer, value: u8) {
+        self.0[pointer.array_pointer] = if pointer.is_lower_byte {
+            let high_bits = self.0[pointer.array_pointer] & 0xf0;
+            high_bits | (value & 0x0f)
+        } else {
+            let low_bits = self.0[pointer.array_pointer] & 0x0f;
+            ((value & 0x0f) << 4) | low_bits
+        }
+    }
 }
 
 struct Cell {
@@ -91,15 +111,6 @@ impl GenomePointer {
     }
 
     #[inline]
-    pub(crate) fn get(&self, genome: &Genome) -> u8 {
-        if self.is_lower_byte {
-            (genome.0[self.array_pointer] & 0xf) as u8
-        } else {
-            ((genome.0[self.array_pointer] >> 4) & 0xf) as u8
-        }
-    }
-
-    #[inline]
     pub(crate) fn next(&mut self) {
         if !self.is_lower_byte {
             self.array_pointer = (self.array_pointer + 1) % GENOME_SIZE;
@@ -122,7 +133,7 @@ struct VMState<'a> {
     input_pointer: GenomePointer,
     register: u8,
     output: Genome,
-    input: &'a Genome,
+    input: &'a mut Genome,
     facing: Facing,
     running: bool,
     loop_stack: Vec<GenomePointer>,
@@ -130,7 +141,7 @@ struct VMState<'a> {
 }
 
 impl<'a> VMState<'a> {
-    pub fn new(input: &'a Genome) -> VMState<'a> {
+    pub fn new(input: &'a mut Genome) -> VMState<'a> {
         VMState {
             input,
             output_pointer: GenomePointer::new(0, true),
@@ -155,13 +166,22 @@ impl<'a> VMState<'a> {
             Instruction::Fwd => self.output_pointer.next(),
             Instruction::Back => self.output_pointer.prev(),
             Instruction::Inc => {
-                self.register= (self.register+ 1) & 0x0f;
+                self.register = (self.register+ 1) & 0x0f;
             },
             Instruction::Dec => {
-                self.register= (self.register- 1) & 0x0f;
+                self.register = (self.register- 1) & 0x0f;
             },
             Instruction::ReadGenome => {
-                self.register= self.output_pointer.get(self.input);
+                self.register = self.input.get(&self.input_pointer);
+            },
+            Instruction::WriteGenome => {
+                self.input.set(&self.input_pointer, self.register);
+            },
+            Instruction::ReadGenome => {
+                self.register = self.output.get(&self.output_pointer);
+            },
+            Instruction::WriteGenome => {
+                self.output.set(&self.output_pointer, self.register);
             },
             _ => panic!("Not implemented yet"),
         }
