@@ -1,8 +1,7 @@
-use std::cmp::min;
+pub struct CellId(usize, usize);
 
-pub struct CellId(u32);
-
-const PARENTLESS: CellId = CellId(0);
+const POND_HEIGHT: usize = 600;
+const POND_WIDTH: usize = 800;
 const POND_DEPTH: usize = 1024;
 const GENOME_SIZE: usize = POND_DEPTH / 2;
 const INFLOW_RATE_BASE: usize = 1000;
@@ -65,7 +64,7 @@ impl Genome {
 
 pub struct Cell {
     id: CellId,
-    parent_id: CellId,
+    parent_id: Option<CellId>,
     lineage: usize,
     generation: usize,
     energy: usize,
@@ -77,7 +76,7 @@ impl Cell {
     pub fn new(id: CellId) -> Cell {
         Cell {
             id,
-            parent_id: PARENTLESS,
+            parent_id: None,
             lineage: 0,
             generation: 0,
             energy: INFLOW_RATE_BASE,
@@ -89,6 +88,54 @@ impl Cell {
         let mut res = Cell::new(id);
         res.genome = Genome::random(generator);
         res
+    }
+}
+
+type CellGrind = [[Cell; POND_HEIGHT]; POND_WIDTH];
+pub struct CellPond {
+    grind: CellGrind,
+}
+
+impl CellPond {
+    pub fn new(grind: CellGrind) -> CellPond {
+        CellPond {
+            grind,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn cell(&mut self, id: &CellId) -> &mut Cell {
+        &mut self.grind[id.0][id.1]
+    }
+
+    #[inline]
+    pub(crate) fn get_neighbor(&mut self, id: &CellId, facing: Facing) -> &mut Cell {
+        match facing {
+            Facing::Left => {
+                let x = if id.0 == 0 {
+                    POND_WIDTH-1
+                } else {
+                    id.0
+                };
+                &mut self.grind[x][id.1]
+            },
+            Facing::Right => {
+                let x = (id.0 + 1) % POND_WIDTH;
+                &mut self.grind[x][id.1]
+            },
+            Facing::Up => {
+                let y = (id.1 + 1) % POND_HEIGHT;
+                &mut self.grind[id.0][y]
+            },
+            Facing::Down => {
+                let y = if id.1 == 0 {
+                    POND_HEIGHT-1
+                } else {
+                    id.1-1
+                };
+                &mut self.grind[id.0][y]
+            },
+        }
     }
 }
 
@@ -134,15 +181,19 @@ impl GenomePointer {
     #[inline]
     pub(crate) fn prev(&mut self) {
         if self.is_lower_byte {
-            self.array_pointer =
-                (((self.array_pointer - 1) % GENOME_SIZE) + GENOME_SIZE) % GENOME_SIZE;
+            self.array_pointer = if self.array_pointer == 0 {
+                GENOME_SIZE-1
+            } else {
+                self.array_pointer-1
+            }
         }
         self.is_lower_byte = !self.is_lower_byte;
     }
 }
 
 pub struct VMState<'a> {
-    cell: &'a mut Cell,
+    pond: &'a mut CellPond,
+    cell: CellId,
     output_pointer: GenomePointer,
     input_pointer: GenomePointer,
     register: u8,
@@ -154,8 +205,9 @@ pub struct VMState<'a> {
 }
 
 impl<'a> VMState<'a> {
-    pub fn new(cell: &'a mut Cell) -> VMState<'a> {
+    pub fn new(cell: CellId, pond: &'a mut CellPond) -> VMState<'a> {
         VMState {
+            pond,
             cell,
             output_pointer: GenomePointer::new(0, true),
             input_pointer: GenomePointer::new(0, true),
@@ -169,8 +221,8 @@ impl<'a> VMState<'a> {
     }
 
     pub fn execute(&mut self) {
-        while self.cell.energy > 0 && self.running {
-            let instruction_byte = self.cell.genome.get(&self.input_pointer);
+        while self.pond.cell(&self.cell).energy > 0 && self.running {
+            let instruction_byte = self.pond.cell(&self.cell).genome.get(&self.input_pointer);
             self.input_pointer.next();
             let instruction = Instruction::from(instruction_byte);
             if self.loop_stack_depth == 0 {
@@ -180,7 +232,7 @@ impl<'a> VMState<'a> {
             } else if instruction == Instruction::Rep {
                 self.loop_stack_depth -= 1;
             }
-            self.cell.energy -= 1;
+            self.pond.cell(&self.cell).energy -= 1;
         }
     }
 
@@ -202,15 +254,15 @@ impl<'a> VMState<'a> {
                 self.register = (self.register- 1) & 0x0f;
             },
             Instruction::ReadGenome => {
-                self.register = self.cell.genome.get(&self.input_pointer);
+                self.register = self.pond.cell(&self.cell).genome.get(&self.input_pointer);
             },
             Instruction::WriteGenome => {
-                self.cell.genome.set(&self.input_pointer, self.register);
+                self.pond.cell(&self.cell).genome.set(&self.input_pointer, self.register);
             },
-            Instruction::ReadGenome => {
+            Instruction::ReadBuffer => {
                 self.register = self.output.get(&self.output_pointer);
             },
-            Instruction::WriteGenome => {
+            Instruction::WriteBuffer => {
                 self.output.set(&self.output_pointer, self.register);
             },
             Instruction::Loop => {
@@ -232,8 +284,8 @@ impl<'a> VMState<'a> {
             },
             Instruction::Xchg => {
                 let register = self.register;
-                self.register = self.cell.genome.get(&self.input_pointer);
-                self.cell.genome.set(&self.input_pointer, register);
+                self.register = self.pond.cell(&self.cell).genome.get(&self.input_pointer);
+                self.pond.cell(&self.cell).genome.set(&self.input_pointer, register);
                 self.input_pointer.next();
             }
             Instruction::Stop => {
