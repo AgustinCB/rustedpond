@@ -99,6 +99,18 @@ enum Facing {
     Left,
 }
 
+impl From<u8> for Facing {
+    fn from(byte: u8) -> Facing {
+        match byte & 0x3 {
+            0x0 => Facing::Left,
+            0x1 => Facing::Right,
+            0x2 => Facing::Up,
+            0x3 => Facing::Down,
+            _ => panic!("Can't happen"),
+        }
+    }
+}
+
 #[derive(Clone)]
 struct GenomePointer {
     pub(crate) array_pointer: usize,
@@ -157,14 +169,10 @@ impl<'a> VMState<'a> {
     }
 
     pub fn execute(&mut self) {
-        let mut next_pointer = self.input_pointer.clone();
-        next_pointer.next();
         while self.cell.energy > 0 && self.running {
             let instruction_byte = self.cell.genome.get(&self.input_pointer);
-            let next = self.cell.genome.get(&next_pointer);
             self.input_pointer.next();
-            next_pointer.next();
-            let instruction = Instruction::from((instruction_byte, next));
+            let instruction = Instruction::from(instruction_byte);
             if self.loop_stack_depth == 0 {
                 self.execute_instruction(instruction);
             } else if instruction == Instruction::Loop {
@@ -219,6 +227,15 @@ impl<'a> VMState<'a> {
                     }
                 }
             },
+            Instruction::Turn => {
+                self.facing = Facing::from(self.register);
+            },
+            Instruction::Xchg => {
+                let register = self.register;
+                self.register = self.cell.genome.get(&self.input_pointer);
+                self.cell.genome.set(&self.input_pointer, register);
+                self.input_pointer.next();
+            }
             Instruction::Stop => {
                 self.running = false;
             },
@@ -241,14 +258,14 @@ enum Instruction {
     Loop,
     Rep,
     Turn,
-    Xchg(u8),
+    Xchg,
     Kill,
     Share,
     Stop,
 }
 
-impl From<(u8, u8)> for Instruction {
-    fn from((instruction, next): (u8, u8)) -> Self {
+impl From<u8> for Instruction {
+    fn from(instruction: u8) -> Self {
         match instruction & 0x0f {
             0x0 => Instruction::Zero,
             0x1 => Instruction::Fwd,
@@ -262,7 +279,7 @@ impl From<(u8, u8)> for Instruction {
             0x9 => Instruction::Loop,
             0xa => Instruction::Rep,
             0xb => Instruction::Turn,
-            0xc => Instruction::Xchg(next & 0x0f),
+            0xc => Instruction::Xchg,
             0xd => Instruction::Kill,
             0xe => Instruction::Share,
             0xf => Instruction::Stop,
