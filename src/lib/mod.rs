@@ -1,13 +1,13 @@
 use std::cmp::min;
 
-struct CellId(u32);
+pub struct CellId(u32);
 
 const PARENTLESS: CellId = CellId(0);
 const POND_DEPTH: usize = 1024;
 const GENOME_SIZE: usize = POND_DEPTH / 2;
 const INFLOW_RATE_BASE: usize = 1000;
 
-struct RandomIntegerGenerator([usize; 2]);
+pub struct RandomIntegerGenerator([usize; 2]);
 impl RandomIntegerGenerator {
     #[inline]
     pub fn new(fseed: usize, sseed: usize) -> RandomIntegerGenerator {
@@ -63,7 +63,7 @@ impl Genome {
     }
 }
 
-struct Cell {
+pub struct Cell {
     id: CellId,
     parent_id: CellId,
     lineage: usize,
@@ -99,6 +99,7 @@ enum Facing {
     Left,
 }
 
+#[derive(Clone)]
 struct GenomePointer {
     pub(crate) array_pointer: usize,
     pub(crate) is_lower_byte: bool,
@@ -128,12 +129,12 @@ impl GenomePointer {
     }
 }
 
-struct VMState<'a> {
+pub struct VMState<'a> {
+    cell: &'a mut Cell,
     output_pointer: GenomePointer,
     input_pointer: GenomePointer,
     register: u8,
     output: Genome,
-    input: &'a mut Genome,
     facing: Facing,
     running: bool,
     loop_stack: Vec<GenomePointer>,
@@ -141,9 +142,9 @@ struct VMState<'a> {
 }
 
 impl<'a> VMState<'a> {
-    pub fn new(input: &'a mut Genome) -> VMState<'a> {
+    pub fn new(cell: &'a mut Cell) -> VMState<'a> {
         VMState {
-            input,
+            cell,
             output_pointer: GenomePointer::new(0, true),
             input_pointer: GenomePointer::new(0, true),
             register: 0,
@@ -155,7 +156,20 @@ impl<'a> VMState<'a> {
         }
     }
 
-    pub fn execute(&mut self, instruction: Instruction) {
+    pub fn execute(&mut self) {
+        let mut next_pointer = self.input_pointer.clone();
+        next_pointer.next();
+        while self.cell.energy > 0 && self.running {
+            let instruction = self.cell.genome.get(&self.input_pointer);
+            let next = self.cell.genome.get(&next_pointer);
+            self.execute_instruction(Instruction::from((instruction, next)));
+            self.cell.energy -= 1;
+            self.input_pointer.next();
+            next_pointer.next();
+        }
+    }
+
+    fn execute_instruction(&mut self, instruction: Instruction) {
         match instruction {
             Instruction::Zero => {
                 self.output_pointer.array_pointer = 0;
@@ -172,10 +186,10 @@ impl<'a> VMState<'a> {
                 self.register = (self.register- 1) & 0x0f;
             },
             Instruction::ReadGenome => {
-                self.register = self.input.get(&self.input_pointer);
+                self.register = self.cell.genome.get(&self.input_pointer);
             },
             Instruction::WriteGenome => {
-                self.input.set(&self.input_pointer, self.register);
+                self.cell.genome.set(&self.input_pointer, self.register);
             },
             Instruction::ReadGenome => {
                 self.register = self.output.get(&self.output_pointer);
@@ -188,7 +202,7 @@ impl<'a> VMState<'a> {
     }
 }
 
-pub enum Instruction {
+enum Instruction {
     Zero,
     Fwd,
     Back,
@@ -204,4 +218,29 @@ pub enum Instruction {
     Xchg(u8),
     Kill,
     Share,
+    Stop,
+}
+
+impl From<(u8, u8)> for Instruction {
+    fn from((instruction, next): (u8, u8)) -> Self {
+        match instruction & 0x0f {
+            0x0 => Instruction::Zero,
+            0x1 => Instruction::Fwd,
+            0x2 => Instruction::Back,
+            0x3 => Instruction::Inc,
+            0x4 => Instruction::Dec,
+            0x5 => Instruction::ReadGenome,
+            0x6 => Instruction::WriteGenome,
+            0x7 => Instruction::ReadBuffer,
+            0x8 => Instruction::WriteBuffer,
+            0x9 => Instruction::Loop,
+            0xa => Instruction::Rep,
+            0xb => Instruction::Turn,
+            0xc => Instruction::Xchg(next & 0x0f),
+            0xd => Instruction::Kill,
+            0xe => Instruction::Share,
+            0xf => Instruction::Stop,
+            _ => panic!("Can't happen"),
+        }
+    }
 }
