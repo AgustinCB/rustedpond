@@ -109,7 +109,7 @@ impl CellPond {
     }
 
     #[inline]
-    pub(crate) fn get_neighbor(&mut self, id: &CellId, facing: Facing) -> &mut Cell {
+    pub(crate) fn get_neighbor(&mut self, id: &CellId, facing: &Facing) -> &mut Cell {
         match facing {
             Facing::Left => {
                 let x = if id.0 == 0 {
@@ -287,7 +287,15 @@ impl<'a> VMState<'a> {
                 self.register = self.pond.cell(&self.cell).genome.get(&self.input_pointer);
                 self.pond.cell(&self.cell).genome.set(&self.input_pointer, register);
                 self.input_pointer.next();
-            }
+            },
+            Instruction::Share => {
+                let total_energy = self.pond.cell(&self.cell).energy +
+                                    self.pond.get_neighbor(&self.cell, &self.facing).energy;
+                let neighbor_energy = total_energy/2;
+                let cell_energy = total_energy - neighbor_energy;
+                self.pond.get_neighbor(&self.cell, &self.facing).energy = neighbor_energy;
+                self.pond.cell(&self.cell).energy = cell_energy;
+            },
             Instruction::Stop => {
                 self.running = false;
             },
