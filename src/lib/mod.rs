@@ -1,14 +1,33 @@
-pub struct CellPosition(usize, usize);
-
-#[derive(PartialEq)]
-pub struct CellId(usize);
-
 const FAILED_KILL_PENALTY: usize = 1/3;
 const POND_HEIGHT: usize = 600;
 const POND_WIDTH: usize = 800;
 const POND_DEPTH: usize = 1024;
 const GENOME_SIZE: usize = POND_DEPTH / 2;
 const INFLOW_RATE_BASE: usize = 1000;
+
+pub struct CellPosition(usize, usize);
+
+#[derive(Clone, PartialEq)]
+pub struct CellId(usize);
+
+struct CellIdGenerator {
+    current: usize,
+}
+
+impl CellIdGenerator {
+    #[inline]
+    pub fn new() -> CellIdGenerator {
+        CellIdGenerator {
+            current: 0,
+        }
+    }
+
+    #[inline]
+    pub fn next(&mut self) -> CellId {
+        self.current += 1;
+        CellId(self.current)
+    }
+}
 
 pub struct RandomIntegerGenerator([usize; 2]);
 impl RandomIntegerGenerator {
@@ -74,7 +93,7 @@ enum InteractionType {
 pub struct Cell {
     id: CellId,
     parent_id: Option<CellId>,
-    lineage: usize,
+    lineage: CellId,
     generation: usize,
     energy: usize,
     genome: Genome,
@@ -82,11 +101,11 @@ pub struct Cell {
 
 impl Cell {
     #[inline]
-    pub fn new(id: CellId) -> Cell {
+    pub fn new(generator: &mut CellIdGenerator) -> Cell {
         Cell {
-            id,
+            id: generator.next(),
             parent_id: None,
-            lineage: 0,
+            lineage: CellId(0),
             generation: 0,
             energy: INFLOW_RATE_BASE,
             genome: Genome::new(),
@@ -94,8 +113,8 @@ impl Cell {
     }
     #[inline]
     pub fn random(
-        id: CellId, generator: &mut RandomIntegerGenerator) -> Cell {
-        let mut res = Cell::new(id);
+        id_generator: &mut CellIdGenerator, generator: &mut RandomIntegerGenerator) -> Cell {
+        let mut res = Cell::new(id_generator);
         res.genome = Genome::random(generator);
         res
     }
@@ -220,6 +239,8 @@ impl GenomePointer {
 
 pub struct VMState<'a> {
     pond: &'a mut CellPond,
+    id_generator: &'a mut CellIdGenerator,
+    number_generator: &'a mut RandomIntegerGenerator,
     cell: CellPosition,
     output_pointer: GenomePointer,
     input_pointer: GenomePointer,
@@ -232,9 +253,14 @@ pub struct VMState<'a> {
 }
 
 impl<'a> VMState<'a> {
-    pub fn new(cell: CellPosition, pond: &'a mut CellPond) -> VMState<'a> {
+    pub fn new(cell: CellPosition,
+               pond: &'a mut CellPond,
+               id_generator: &'a mut CellIdGenerator,
+               number_generator: &'a mut RandomIntegerGenerator) -> VMState<'a> {
         VMState {
             pond,
+            id_generator,
+            number_generator,
             cell,
             output_pointer: GenomePointer::new(0, true),
             input_pointer: GenomePointer::new(0, true),
@@ -247,13 +273,13 @@ impl<'a> VMState<'a> {
         }
     }
 
-    pub fn execute(&mut self, generator: &mut RandomIntegerGenerator) {
+    pub fn execute(&mut self) {
         while self.pond.cell(&self.cell).energy > 0 && self.running {
             let instruction_byte = self.pond.cell(&self.cell).genome.get(&self.input_pointer);
             self.input_pointer.next();
             let instruction = Instruction::from(instruction_byte);
             if self.loop_stack_depth == 0 {
-                self.execute_instruction(instruction, generator);
+                self.execute_instruction(instruction);
             } else if instruction == Instruction::Loop {
                 self.loop_stack_depth += 1;
             } else if instruction == Instruction::Rep {
@@ -265,7 +291,7 @@ impl<'a> VMState<'a> {
 
     #[inline]
     fn execute_instruction(
-        &mut self, instruction: Instruction, generator: &mut RandomIntegerGenerator) {
+        &mut self, instruction: Instruction) {
         match instruction {
             Instruction::Zero => {
                 self.output_pointer.array_pointer = 0;
@@ -317,7 +343,7 @@ impl<'a> VMState<'a> {
                 self.input_pointer.next();
             },
             Instruction::Share => {
-                if self.can_access_neighbor(generator, InteractionType::Positive) {
+                if self.can_access_neighbor(InteractionType::Positive) {
                     let total_energy = self.pond.cell(&self.cell).energy +
                         self.pond.get_neighbor(&self.cell, &self.facing).energy;
                     let neighbor_energy = total_energy/2;
@@ -327,11 +353,14 @@ impl<'a> VMState<'a> {
                 }
             },
             Instruction::Kill => {
-                if self.can_access_neighbor(generator, InteractionType::Negative) {
-                    let neighbor = self.pond.get_neighbor(&self.cell, &self.facing);
+                if self.can_access_neighbor(InteractionType::Negative) {
+                    let neighbor = self.pond.get_neighbor(
+                        &self.cell, &self.facing);
+                    neighbor.id = self.id_generator.next();
                     neighbor.genome.0[0] = !0;
                     neighbor.genome.0[1] = !0;
                     neighbor.parent_id = None;
+                    neighbor.lineage = neighbor.id.clone();
                     neighbor.generation = 0;
                 } else {
                     let cell_energy = self.pond.cell(&self.cell).energy;
@@ -346,12 +375,10 @@ impl<'a> VMState<'a> {
     }
 
     #[inline]
-    fn can_access_neighbor(&mut self, g: &mut RandomIntegerGenerator, i: InteractionType) -> bool {
+    fn can_access_neighbor(&mut self, interaction: InteractionType) -> bool {
         self.pond.get_neighbor(&self.cell, &self.facing)
             .can_be_accessed(
-                self.register,
-                i,
-                g.generate() as u8)
+                self.register, interaction, self.number_generator.generate() as u8)
     }
 }
 
