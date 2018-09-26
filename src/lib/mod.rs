@@ -1,5 +1,7 @@
+pub struct CellPosition(usize, usize);
+
 #[derive(PartialEq)]
-pub struct CellId(usize, usize);
+pub struct CellId(usize);
 
 const FAILED_KILL_PENALTY: usize = 1/3;
 const POND_HEIGHT: usize = 600;
@@ -91,7 +93,8 @@ impl Cell {
         }
     }
     #[inline]
-    pub fn random(id: CellId, generator: &mut RandomIntegerGenerator) -> Cell {
+    pub fn random(
+        id: CellId, generator: &mut RandomIntegerGenerator) -> Cell {
         let mut res = Cell::new(id);
         res.genome = Genome::random(generator);
         res
@@ -128,36 +131,36 @@ impl CellPond {
     }
 
     #[inline]
-    pub(crate) fn cell(&mut self, id: &CellId) -> &mut Cell {
-        &mut self.grind[id.0][id.1]
+    pub(crate) fn cell(&mut self, position: &CellPosition) -> &mut Cell {
+        &mut self.grind[position.0][position.1]
     }
 
     #[inline]
-    pub(crate) fn get_neighbor(&mut self, id: &CellId, facing: &Facing) -> &mut Cell {
+    pub(crate) fn get_neighbor(&mut self, position: &CellPosition, facing: &Facing) -> &mut Cell {
         match facing {
             Facing::Left => {
-                let x = if id.0 == 0 {
+                let x = if position.0 == 0 {
                     POND_WIDTH-1
                 } else {
-                    id.0
+                    position.0
                 };
-                &mut self.grind[x][id.1]
+                &mut self.grind[x][position.1]
             },
             Facing::Right => {
-                let x = (id.0 + 1) % POND_WIDTH;
-                &mut self.grind[x][id.1]
+                let x = (position.0 + 1) % POND_WIDTH;
+                &mut self.grind[x][position.1]
             },
             Facing::Up => {
-                let y = (id.1 + 1) % POND_HEIGHT;
-                &mut self.grind[id.0][y]
+                let y = (position.1 + 1) % POND_HEIGHT;
+                &mut self.grind[position.0][y]
             },
             Facing::Down => {
-                let y = if id.1 == 0 {
+                let y = if position.1 == 0 {
                     POND_HEIGHT-1
                 } else {
-                    id.1-1
+                    position.1-1
                 };
-                &mut self.grind[id.0][y]
+                &mut self.grind[position.0][y]
             },
         }
     }
@@ -217,7 +220,7 @@ impl GenomePointer {
 
 pub struct VMState<'a> {
     pond: &'a mut CellPond,
-    cell: CellId,
+    cell: CellPosition,
     output_pointer: GenomePointer,
     input_pointer: GenomePointer,
     register: u8,
@@ -229,7 +232,7 @@ pub struct VMState<'a> {
 }
 
 impl<'a> VMState<'a> {
-    pub fn new(cell: CellId, pond: &'a mut CellPond) -> VMState<'a> {
+    pub fn new(cell: CellPosition, pond: &'a mut CellPond) -> VMState<'a> {
         VMState {
             pond,
             cell,
