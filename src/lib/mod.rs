@@ -1,3 +1,5 @@
+use std::ops::{Index, IndexMut};
+
 const FAILED_KILL_PENALTY: usize = 1/3;
 const MUTATION_RATE: usize = 5000;
 const POND_HEIGHT: usize = 600;
@@ -5,6 +7,106 @@ const POND_WIDTH: usize = 800;
 const POND_DEPTH: usize = 1024;
 const GENOME_SIZE: usize = POND_DEPTH / 2;
 const INFLOW_RATE_BASE: usize = 1000;
+
+pub(crate) struct InstructionCounter {
+    zero: usize,
+    fwd: usize,
+    back: usize,
+    inc: usize,
+    dec: usize,
+    read_genome: usize,
+    write_genome: usize,
+    read_buffer: usize,
+    write_buffer: usize,
+    loop_instruction: usize,
+    rep: usize,
+    turn: usize,
+    xchg: usize,
+    kill: usize,
+    share: usize,
+    stop: usize,
+}
+
+impl InstructionCounter {
+    pub(crate) fn new() -> InstructionCounter {
+        InstructionCounter {
+            zero: 0,
+            fwd: 0,
+            back: 0,
+            inc: 0,
+            dec: 0,
+            read_genome: 0,
+            write_genome: 0,
+            read_buffer: 0,
+            write_buffer: 0,
+            loop_instruction: 0,
+            rep: 0,
+            turn: 0,
+            xchg: 0,
+            kill: 0,
+            share: 0,
+            stop: 0,
+        }
+    }
+}
+
+impl<'a> Index<&'a Instruction> for InstructionCounter {
+    type Output = usize;
+    fn index(&self, instruction: &'a Instruction) -> &usize {
+        match instruction {
+            Instruction::Zero => &self.zero,
+            Instruction::Fwd => &self.fwd,
+            Instruction::Back => &self.back,
+            Instruction::Inc => &self.inc,
+            Instruction::Dec => &self.dec,
+            Instruction::ReadGenome => &self.read_genome,
+            Instruction::WriteGenome => &self.write_genome,
+            Instruction::ReadBuffer => &self.read_buffer,
+            Instruction::WriteBuffer => &self.write_buffer,
+            Instruction::Loop => &self.loop_instruction,
+            Instruction::Rep => &self.rep,
+            Instruction::Turn => &self.turn,
+            Instruction::Xchg => &self.xchg,
+            Instruction::Kill => &self.kill,
+            Instruction::Share => &self.share,
+            Instruction::Stop => &self.stop,
+        }
+    }
+}
+
+impl<'a> IndexMut<&'a Instruction> for InstructionCounter {
+    fn index_mut(&mut self, instruction: &'a Instruction) -> &mut usize {
+        match instruction {
+            Instruction::Zero => &mut self.zero,
+            Instruction::Fwd => &mut self.fwd,
+            Instruction::Back => &mut self.back,
+            Instruction::Inc => &mut self.inc,
+            Instruction::Dec => &mut self.dec,
+            Instruction::ReadGenome => &mut self.read_genome,
+            Instruction::WriteGenome => &mut self.write_genome,
+            Instruction::ReadBuffer => &mut self.read_buffer,
+            Instruction::WriteBuffer => &mut self.write_buffer,
+            Instruction::Loop => &mut self.loop_instruction,
+            Instruction::Rep => &mut self.rep,
+            Instruction::Turn => &mut self.turn,
+            Instruction::Xchg => &mut self.xchg,
+            Instruction::Kill => &mut self.kill,
+            Instruction::Share => &mut self.share,
+            Instruction::Stop => &mut self.stop,
+        }
+    }
+}
+pub struct Statistics {
+    instruction_executions: InstructionCounter,
+}
+
+impl Statistics {
+    pub fn new() -> Statistics {
+        Statistics {
+            instruction_executions: InstructionCounter::new(),
+        }
+    }
+}
 
 pub struct CellPosition(usize, usize);
 
@@ -247,6 +349,7 @@ pub struct VMState<'a> {
     pond: &'a mut CellPond,
     id_generator: &'a mut CellIdGenerator,
     number_generator: &'a mut RandomGenerator,
+    statistics: &'a mut Statistics,
     cell: CellPosition,
     output_pointer: GenomePointer,
     input_pointer: GenomePointer,
@@ -262,11 +365,13 @@ impl<'a> VMState<'a> {
     pub fn new(cell: CellPosition,
                pond: &'a mut CellPond,
                id_generator: &'a mut CellIdGenerator,
-               number_generator: &'a mut RandomGenerator) -> VMState<'a> {
+               number_generator: &'a mut RandomGenerator,
+               statistics: &'a mut Statistics) -> VMState<'a> {
         VMState {
             pond,
             id_generator,
             number_generator,
+            statistics,
             cell,
             output_pointer: GenomePointer::new(0, true),
             input_pointer: GenomePointer::new(0, true),
@@ -285,6 +390,7 @@ impl<'a> VMState<'a> {
             let instruction_byte = self.pond.cell(&self.cell).genome.get(&self.input_pointer);
             self.input_pointer.next();
             let instruction = Instruction::from(instruction_byte);
+            self.statistics.instruction_executions[&instruction] += 1;
             if self.loop_stack_depth == 0 {
                 self.execute_instruction(instruction);
             } else if instruction == Instruction::Loop {
