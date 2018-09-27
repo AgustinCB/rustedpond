@@ -1,4 +1,5 @@
 const FAILED_KILL_PENALTY: usize = 1/3;
+const MUTATION_RATE: usize = 5000;
 const POND_HEIGHT: usize = 600;
 const POND_WIDTH: usize = 800;
 const POND_DEPTH: usize = 1024;
@@ -10,7 +11,7 @@ pub struct CellPosition(usize, usize);
 #[derive(Clone, PartialEq)]
 pub struct CellId(usize);
 
-struct CellIdGenerator {
+pub struct CellIdGenerator {
     current: usize,
 }
 
@@ -29,21 +30,26 @@ impl CellIdGenerator {
     }
 }
 
-pub struct RandomIntegerGenerator([usize; 2]);
-impl RandomIntegerGenerator {
+pub struct RandomGenerator([usize; 2]);
+impl RandomGenerator {
     #[inline]
-    pub fn new(fseed: usize, sseed: usize) -> RandomIntegerGenerator {
-        RandomIntegerGenerator([fseed, sseed])
+    pub fn new(fseed: usize, sseed: usize) -> RandomGenerator {
+        RandomGenerator([fseed, sseed])
     }
 
     #[inline]
-    pub fn generate(&mut self) -> usize {
+    pub fn generate_integer(&mut self) -> usize {
         let mut x = self.0[0];
         let y = self.0[1];
         self.0[0] = y;
         x ^= x << 23;
         self.0[1] = x ^ y ^ (x >> 17) ^ (y >> 26);
         self.0[1] + y
+    }
+
+    #[inline]
+    pub fn generate_boolean(&mut self) -> bool {
+        (self.generate_integer() & 0x80) > 0
     }
 }
 
@@ -55,10 +61,10 @@ impl Genome {
         Genome([!0; GENOME_SIZE])
     }
     #[inline]
-    pub fn random(generator: &mut RandomIntegerGenerator) -> Genome {
+    pub fn random(generator: &mut RandomGenerator) -> Genome {
         let mut genome = [0; GENOME_SIZE];
         for i in 0..GENOME_SIZE {
-            let mut n = generator.generate() as u8;
+            let mut n = generator.generate_integer() as u8;
             genome[i] = n;
         }
         Genome(genome)
@@ -113,7 +119,7 @@ impl Cell {
     }
     #[inline]
     pub fn random(
-        id_generator: &mut CellIdGenerator, generator: &mut RandomIntegerGenerator) -> Cell {
+        id_generator: &mut CellIdGenerator, generator: &mut RandomGenerator) -> Cell {
         let mut res = Cell::new(id_generator);
         res.genome = Genome::random(generator);
         res
@@ -240,7 +246,7 @@ impl GenomePointer {
 pub struct VMState<'a> {
     pond: &'a mut CellPond,
     id_generator: &'a mut CellIdGenerator,
-    number_generator: &'a mut RandomIntegerGenerator,
+    number_generator: &'a mut RandomGenerator,
     cell: CellPosition,
     output_pointer: GenomePointer,
     input_pointer: GenomePointer,
@@ -256,7 +262,7 @@ impl<'a> VMState<'a> {
     pub fn new(cell: CellPosition,
                pond: &'a mut CellPond,
                id_generator: &'a mut CellIdGenerator,
-               number_generator: &'a mut RandomIntegerGenerator) -> VMState<'a> {
+               number_generator: &'a mut RandomGenerator) -> VMState<'a> {
         VMState {
             pond,
             id_generator,
@@ -275,6 +281,7 @@ impl<'a> VMState<'a> {
 
     pub fn execute(&mut self) {
         while self.pond.cell(&self.cell).energy > 0 && self.running {
+            self.maybe_mutate();
             let instruction_byte = self.pond.cell(&self.cell).genome.get(&self.input_pointer);
             self.input_pointer.next();
             let instruction = Instruction::from(instruction_byte);
@@ -378,7 +385,21 @@ impl<'a> VMState<'a> {
     fn can_access_neighbor(&mut self, interaction: InteractionType) -> bool {
         self.pond.get_neighbor(&self.cell, &self.facing)
             .can_be_accessed(
-                self.register, interaction, self.number_generator.generate() as u8)
+                self.register, interaction, self.number_generator.generate_integer() as u8)
+    }
+
+    #[inline]
+    fn maybe_mutate(&mut self) {
+        if self.number_generator.generate_integer() < MUTATION_RATE {
+            let new_instruction = self.number_generator.generate_integer() as u8  & 0x0f;
+            if self.number_generator.generate_boolean() {
+                self.pond
+                    .cell(&self.cell).genome
+                    .set(&self.input_pointer, new_instruction);
+            } else {
+                self.register = new_instruction;
+            }
+        }
     }
 }
 
