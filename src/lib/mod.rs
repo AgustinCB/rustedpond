@@ -98,12 +98,18 @@ impl<'a> IndexMut<&'a Instruction> for InstructionCounter {
 }
 pub struct Statistics {
     instruction_executions: InstructionCounter,
+    cell_executions: usize,
+    viable_cells_killed: usize,
+    viable_cell_shares: usize,
 }
 
 impl Statistics {
     pub fn new() -> Statistics {
         Statistics {
             instruction_executions: InstructionCounter::new(),
+            cell_executions: 0,
+            viable_cells_killed: 0,
+            viable_cell_shares: 0,
         }
     }
 }
@@ -385,6 +391,7 @@ impl<'a> VMState<'a> {
     }
 
     pub fn execute(&mut self) {
+        self.statistics.cell_executions += 1;
         while self.pond.cell(&self.cell).energy > 0 && self.running {
             self.maybe_mutate();
             let instruction_byte = self.pond.cell(&self.cell).genome.get(&self.input_pointer);
@@ -461,7 +468,13 @@ impl<'a> VMState<'a> {
                         self.pond.get_neighbor(&self.cell, &self.facing).energy;
                     let neighbor_energy = total_energy/2;
                     let cell_energy = total_energy - neighbor_energy;
-                    self.pond.get_neighbor(&self.cell, &self.facing).energy = neighbor_energy;
+                    {
+                        let neighbor = self.pond.get_neighbor(&self.cell, &self.facing);
+                        if neighbor.generation > 2 {
+                            self.statistics.viable_cell_shares += 1;
+                        }
+                        neighbor.energy = neighbor_energy;
+                    }
                     self.pond.cell(&self.cell).energy = cell_energy;
                 }
             },
@@ -469,6 +482,9 @@ impl<'a> VMState<'a> {
                 if self.can_access_neighbor(InteractionType::Negative) {
                     let neighbor = self.pond.get_neighbor(
                         &self.cell, &self.facing);
+                    if neighbor.generation > 2 {
+                        self.statistics.viable_cells_killed += 1;
+                    }
                     neighbor.id = self.id_generator.next();
                     neighbor.genome.0[0] = !0;
                     neighbor.genome.0[1] = !0;
