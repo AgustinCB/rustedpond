@@ -94,6 +94,7 @@ pub struct Statistics {
     pub(crate) cell_executions: usize,
     pub(crate) viable_cells_killed: usize,
     pub(crate) viable_cell_shares: usize,
+    pub(crate) viable_cell_replaced: usize,
 }
 
 impl Statistics {
@@ -103,6 +104,7 @@ impl Statistics {
             cell_executions: 0,
             viable_cells_killed: 0,
             viable_cell_shares: 0,
+            viable_cell_replaced: 0,
         }
     }
 }

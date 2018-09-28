@@ -81,6 +81,7 @@ impl<'a> CellVM<'a> {
             }
             self.pond.cell(&self.cell).energy -= 1;
         }
+        self.maybe_reproduce();
     }
 
     #[inline]
@@ -143,7 +144,7 @@ impl<'a> CellVM<'a> {
                     let neighbor_energy = total_energy/2;
                     let cell_energy = total_energy - neighbor_energy;
                     {
-                        let mut neighbor = self.pond.get_neighbor(&self.cell, &self.facing);
+                        let neighbor = self.pond.get_neighbor(&self.cell, &self.facing);
                         if neighbor.generation > 2 {
                             self.statistics.viable_cell_shares += 1;
                         }
@@ -154,8 +155,7 @@ impl<'a> CellVM<'a> {
             },
             Instruction::Kill => {
                 if self.can_access_neighbor(InteractionType::Negative) {
-                    let mut neighbor = self.pond.get_neighbor(
-                        &self.cell, &self.facing);
+                    let neighbor = self.pond.get_neighbor(&self.cell, &self.facing);
                     if neighbor.generation > 2 {
                         self.statistics.viable_cells_killed += 1;
                     }
@@ -195,6 +195,25 @@ impl<'a> CellVM<'a> {
             } else {
                 self.register = new_instruction;
             }
+        }
+    }
+
+    #[inline]
+    pub fn maybe_reproduce(&mut self) {
+        if self.output.0[0] != 0xff &&
+            self.can_access_neighbor(InteractionType::Negative) {
+            let parent = self.pond.cell(&self.cell).id.clone();
+            let lineage = self.pond.cell(&self.cell).lineage.clone();
+            let generation = self.pond.cell(&self.cell).generation + 1;
+            let neighbor = self.pond.get_neighbor(&self.cell, &self.facing);
+            if neighbor.generation > 2 {
+                self.statistics.viable_cell_replaced += 1;
+            }
+            neighbor.id = self.id_generator.next();
+            neighbor.parent_id = Some(parent);
+            neighbor.lineage = lineage;
+            neighbor.generation = generation;
+            neighbor.genome = self.output.clone();
         }
     }
 }

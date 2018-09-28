@@ -1,5 +1,6 @@
 use super::{GENOME_SIZE, RandomGenerator};
 
+#[derive(Clone)]
 pub struct Genome(pub(crate) [u8; GENOME_SIZE]);
 
 impl Genome {
