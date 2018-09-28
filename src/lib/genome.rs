@@ -1,6 +1,6 @@
 use super::{GENOME_SIZE, RandomGenerator};
 
-pub(crate) struct Genome(pub(crate) [u8; GENOME_SIZE]);
+pub struct Genome(pub(crate) [u8; GENOME_SIZE]);
 
 impl Genome {
     #[inline]

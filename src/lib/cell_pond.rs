@@ -1,6 +1,7 @@
-use cell::{Cell, CellPosition};
+use cell::{Cell, CellId, CellPosition};
 use cell_vm::Facing;
-use super::{POND_HEIGHT, POND_WIDTH};
+use genome::Genome;
+use super::{INFLOW_RATE_BASE, POND_HEIGHT, POND_WIDTH};
 
 type CellGrind = [[Cell; POND_HEIGHT]; POND_WIDTH];
 pub struct CellPond {
@@ -12,6 +13,17 @@ impl CellPond {
         CellPond {
             grind,
         }
+    }
+
+    #[inline]
+    pub fn replace(&mut self, position: &CellPosition, new_id: CellId, genome: Genome) {
+        let cell = &mut self.grind[position.0][position.1];
+        cell.id = new_id.clone();
+        cell.parent_id = None;
+        cell.lineage = new_id;
+        cell.generation = 0;
+        cell.energy = INFLOW_RATE_BASE;
+        cell.genome = genome;
     }
 
     #[inline]
