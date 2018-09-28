@@ -1,3 +1,6 @@
+use cell::CellPosition;
+use super::{POND_WIDTH, POND_HEIGHT};
+
 pub struct RandomGenerator([usize; 2]);
 impl RandomGenerator {
     #[inline]
@@ -18,5 +21,13 @@ impl RandomGenerator {
     #[inline]
     pub fn generate_boolean(&mut self) -> bool {
         (self.generate_integer() & 0x80) > 0
+    }
+
+    #[inline]
+    pub fn generate_cell_position(&mut self) -> CellPosition {
+        let n = self.generate_integer();
+        let x = n % POND_WIDTH;
+        let y = ((n / POND_HEIGHT) >> 1) % POND_HEIGHT;
+        CellPosition(x, y)
     }
 }
