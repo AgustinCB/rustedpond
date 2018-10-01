@@ -1,3 +1,5 @@
+use std::slice::Iter;
+
 #[derive(PartialEq)]
 pub(crate) enum Instruction {
     Zero,
@@ -16,6 +18,30 @@ pub(crate) enum Instruction {
     Kill,
     Share,
     Stop,
+}
+
+impl Instruction {
+    pub(crate) fn iterator() -> Iter<'static, Instruction> {
+        static INSTRUCTIONS: [Instruction; 16] = [
+            Instruction::Zero,
+            Instruction::Fwd,
+            Instruction::Back,
+            Instruction::Inc,
+            Instruction::Dec,
+            Instruction::ReadGenome,
+            Instruction::WriteGenome,
+            Instruction::ReadBuffer,
+            Instruction::WriteBuffer,
+            Instruction::Loop,
+            Instruction::Rep,
+            Instruction::Turn,
+            Instruction::Xchg,
+            Instruction::Kill,
+            Instruction::Share,
+            Instruction::Stop,
+        ];
+        INSTRUCTIONS.into_iter()
+    }
 }
 
 impl From<u8> for Instruction {

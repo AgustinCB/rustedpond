@@ -1,3 +1,4 @@
+use std::fmt;
 use std::ops::{Index, IndexMut};
 use instruction::Instruction;
 
@@ -108,5 +109,38 @@ impl Statistics {
             viable_cell_shares: 0,
             viable_cell_replaced: 0,
         }
+    }
+
+    #[inline]
+    pub fn metabolism(&self) -> usize {
+        if self.cell_executions == 0 {
+            0
+        } else {
+            self.total_metabolism() / self.cell_executions
+        }
+    }
+
+    #[inline]
+    fn total_metabolism(&self) -> usize {
+        Instruction::iterator()
+            .fold(0, |sum, i| sum + self.instruction_executions[i])
+    }
+}
+
+impl fmt::Display for Statistics {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{},{},{}",
+               self.viable_cell_replaced,
+               self.viable_cells_killed,
+               self.viable_cell_shares)?;
+        for instruction in Instruction::iterator() {
+            let value = if self.cell_executions == 0 {
+                0.0
+            } else {
+                self.instruction_executions[instruction] as f64 / self.cell_executions as f64
+            };
+            write!(f, "{:04},", value)?;
+        }
+        Ok(())
     }
 }

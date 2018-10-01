@@ -67,4 +67,43 @@ impl CellPond {
             },
         }
     }
+
+    #[inline]
+    pub fn total_energy(&self) -> usize {
+        self.perform_on_active(0, |acc, cell| cell.energy + acc)
+    }
+
+    #[inline]
+    pub fn total_active_cells(&self) -> usize {
+        self.perform_on_active(0, |acc, _| acc+1)
+    }
+
+    #[inline]
+    pub fn total_viable_replicators(&self) -> usize {
+        self.perform_on_active(
+            0, |acc, cell| if cell.generation > 2 { acc + 1 } else { acc })
+    }
+
+    #[inline]
+    pub fn max_generation(&self) -> usize {
+        self.perform_on_active(0, |g, cell|
+            if cell.generation > g {
+                cell.generation
+            } else {
+                g
+            })
+    }
+
+    fn perform_on_active<R, T: Fn(R, &Cell) -> R>(&self, zero: R, op: T) -> R {
+        let mut acc = zero;
+        for x in 0..POND_WIDTH {
+            for y in 0..POND_HEIGHT {
+                let c = &self.grind[x][y];
+                if c.energy > 0 {
+                    acc = op(acc, c);
+                }
+            }
+        }
+        acc
+    }
 }

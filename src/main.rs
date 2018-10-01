@@ -30,12 +30,27 @@ fn execute_cell(pond: &mut CellPond,
     vm.execute();
 }
 
+#[inline]
+fn do_report(pond: &CellPond, statistics: &Statistics) {
+    print!("{},{},{},{},{},{},{}",
+           statistics.clock,
+           pond.total_energy(),
+           pond.total_active_cells(),
+           pond.total_viable_replicators(),
+           pond.max_generation(),
+           statistics,
+           statistics.metabolism());
+}
+
 fn run(mut pond: CellPond,
        mut id_generator: CellIdGenerator,
        mut random_generator: RandomGenerator,
        mut statistics: Statistics) {
     loop {
         statistics.clock += 1;
+        if statistics.clock % REPORT_FREQUENCY == 0 {
+            do_report(&pond, &statistics);
+        }
         if statistics.clock % INFLOW_FREQUENCY == 0 {
             mutate_cell(&mut pond, &mut random_generator, &mut id_generator);
         }

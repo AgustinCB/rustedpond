@@ -14,6 +14,7 @@ const POND_DEPTH: usize = 1024;
 const GENOME_SIZE: usize = POND_DEPTH / 2;
 const INFLOW_RATE_BASE: usize = 1000;
 pub const INFLOW_FREQUENCY: usize = 100;
+pub const REPORT_FREQUENCY: usize = 20000;
 
 pub use cell::CellIdGenerator;
 pub use cell_pond::CellPond;
