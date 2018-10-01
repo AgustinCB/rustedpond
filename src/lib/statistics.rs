@@ -112,6 +112,17 @@ impl Statistics {
     }
 
     #[inline]
+    pub fn zero(&mut self) {
+        self.cell_executions = 0;
+        self.viable_cells_killed = 0;
+        self.viable_cell_shares = 0;
+        self.viable_cell_replaced = 0;
+        for i in Instruction::iterator() {
+            self.instruction_executions[i] = 0;
+        }
+    }
+
+    #[inline]
     pub fn metabolism(&self) -> usize {
         if self.cell_executions == 0 {
             0

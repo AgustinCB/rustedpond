@@ -31,7 +31,7 @@ fn execute_cell(pond: &mut CellPond,
 }
 
 #[inline]
-fn do_report(pond: &CellPond, statistics: &Statistics) {
+fn do_report(pond: &CellPond, statistics: &mut Statistics) {
     println!("{},{},{},{},{},{},{}",
            statistics.clock,
            pond.total_energy(),
@@ -40,6 +40,7 @@ fn do_report(pond: &CellPond, statistics: &Statistics) {
            pond.max_generation(),
            statistics,
            statistics.metabolism());
+    statistics.zero();
 }
 
 fn run(mut pond: CellPond,
@@ -49,7 +50,7 @@ fn run(mut pond: CellPond,
     loop {
         statistics.clock += 1;
         if statistics.clock % REPORT_FREQUENCY == 0 {
-            do_report(&pond, &statistics);
+            do_report(&pond, &mut statistics);
         }
         if statistics.clock % INFLOW_FREQUENCY == 0 {
             mutate_cell(&mut pond, &mut random_generator, &mut id_generator);
