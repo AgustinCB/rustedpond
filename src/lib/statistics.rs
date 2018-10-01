@@ -92,6 +92,7 @@ impl<'a> IndexMut<&'a Instruction> for InstructionCounter {
 pub struct Statistics {
     pub(crate) instruction_executions: InstructionCounter,
     pub(crate) cell_executions: usize,
+    pub clock: usize,
     pub(crate) viable_cells_killed: usize,
     pub(crate) viable_cell_shares: usize,
     pub(crate) viable_cell_replaced: usize,
@@ -102,6 +103,7 @@ impl Statistics {
         Statistics {
             instruction_executions: InstructionCounter::new(),
             cell_executions: 0,
+            clock: 0,
             viable_cells_killed: 0,
             viable_cell_shares: 0,
             viable_cell_replaced: 0,

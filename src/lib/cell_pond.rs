@@ -1,15 +1,22 @@
-use cell::{Cell, CellId, CellPosition};
+use cell::{Cell, CellId, CellIdGenerator, CellPosition};
 use cell_vm::Facing;
 use genome::Genome;
+use random_generator::RandomGenerator;
 use super::{INFLOW_RATE_BASE, POND_HEIGHT, POND_WIDTH};
 
-type CellGrind = [[Cell; POND_HEIGHT]; POND_WIDTH];
 pub struct CellPond {
-    grind: CellGrind,
+    grind: Vec<Vec<Cell>>,
 }
 
 impl CellPond {
-    pub fn new(grind: CellGrind) -> CellPond {
+    pub fn new(id_generator: &mut CellIdGenerator, generator: &mut RandomGenerator) -> CellPond {
+        let mut grind = Vec::with_capacity(POND_WIDTH);
+        for i in 0..POND_WIDTH {
+            grind[i] = Vec::with_capacity(POND_HEIGHT);
+            for j in 0..POND_HEIGHT {
+                grind[i][j] = Cell::random(id_generator, generator);
+            }
+        }
         CellPond {
             grind,
         }
