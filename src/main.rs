@@ -1,6 +1,6 @@
 extern crate rustedpond;
 
-use rustedpond::{CellIdGenerator, CellPond, Genome, INFLOW_FREQUENCY, RandomGenerator, Statistics};
+use rustedpond::*;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[inline]
@@ -11,6 +11,25 @@ fn get_timestamp() -> usize {
         .subsec_nanos() as usize
 }
 
+#[inline]
+fn mutate_cell(pond: &mut CellPond,
+               random_generator: &mut RandomGenerator,
+               id_generator: &mut CellIdGenerator) {
+    let position = &random_generator.generate_cell_position();
+    pond.replace(
+        position, id_generator.next(), Genome::random(random_generator));
+}
+
+#[inline]
+fn execute_cell(pond: &mut CellPond,
+                random_generator: &mut RandomGenerator,
+                id_generator: &mut CellIdGenerator,
+                statistics: &mut Statistics) {
+    let position = random_generator.generate_cell_position();
+    let mut vm = CellVM::new(position, pond, id_generator, random_generator, statistics);
+    vm.execute();
+}
+
 fn run(mut pond: CellPond,
        mut id_generator: CellIdGenerator,
        mut random_generator: RandomGenerator,
@@ -18,10 +37,9 @@ fn run(mut pond: CellPond,
     loop {
         statistics.clock += 1;
         if statistics.clock % INFLOW_FREQUENCY == 0 {
-            let position = &random_generator.generate_cell_position();
-            pond.replace(
-                position, id_generator.next(), Genome::random(&mut random_generator));
+            mutate_cell(&mut pond, &mut random_generator, &mut id_generator);
         }
+        execute_cell(&mut pond, &mut random_generator, &mut id_generator, &mut statistics);
     }
 }
 

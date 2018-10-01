@@ -28,7 +28,7 @@ impl From<u8> for Facing {
 pub struct CellVM<'a> {
     pond: &'a mut CellPond,
     id_generator: &'a mut CellIdGenerator,
-    number_generator: &'a mut RandomGenerator,
+    random_generator: &'a mut RandomGenerator,
     statistics: &'a mut Statistics,
     cell: CellPosition,
     output_pointer: GenomePointer,
@@ -45,12 +45,12 @@ impl<'a> CellVM<'a> {
     pub fn new(cell: CellPosition,
                pond: &'a mut CellPond,
                id_generator: &'a mut CellIdGenerator,
-               number_generator: &'a mut RandomGenerator,
+               random_generator: &'a mut RandomGenerator,
                statistics: &'a mut Statistics) -> CellVM<'a> {
         CellVM {
             pond,
             id_generator,
-            number_generator,
+            random_generator,
             statistics,
             cell,
             output_pointer: GenomePointer::new(0, true),
@@ -181,14 +181,14 @@ impl<'a> CellVM<'a> {
     fn can_access_neighbor(&mut self, interaction: InteractionType) -> bool {
         self.pond.get_neighbor(&self.cell, &self.facing)
             .can_be_accessed(
-                self.register, interaction, self.number_generator.generate_integer() as u8)
+                self.register, interaction, self.random_generator.generate_integer() as u8)
     }
 
     #[inline]
     fn maybe_mutate(&mut self) {
-        if self.number_generator.generate_integer() < MUTATION_RATE {
-            let new_instruction = self.number_generator.generate_integer() as u8  & 0x0f;
-            if self.number_generator.generate_boolean() {
+        if self.random_generator.generate_integer() < MUTATION_RATE {
+            let new_instruction = self.random_generator.generate_integer() as u8  & 0x0f;
+            if self.random_generator.generate_boolean() {
                 self.pond
                     .cell(&self.cell).genome
                     .set(&self.input_pointer, new_instruction);
