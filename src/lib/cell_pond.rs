@@ -12,9 +12,9 @@ impl CellPond {
     pub fn new(id_generator: &mut CellIdGenerator, generator: &mut RandomGenerator) -> CellPond {
         let mut grind = Vec::with_capacity(POND_WIDTH);
         for i in 0..POND_WIDTH {
-            grind[i] = Vec::with_capacity(POND_HEIGHT);
-            for j in 0..POND_HEIGHT {
-                grind[i][j] = Cell::random(id_generator, generator);
+            grind.push(Vec::with_capacity(POND_HEIGHT));
+            for _ in 0..POND_HEIGHT {
+                grind[i].push(Cell::random(id_generator, generator));
             }
         }
         CellPond {

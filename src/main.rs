@@ -32,7 +32,7 @@ fn execute_cell(pond: &mut CellPond,
 
 #[inline]
 fn do_report(pond: &CellPond, statistics: &Statistics) {
-    print!("{},{},{},{},{},{},{}",
+    println!("{},{},{},{},{},{},{}",
            statistics.clock,
            pond.total_energy(),
            pond.total_active_cells(),

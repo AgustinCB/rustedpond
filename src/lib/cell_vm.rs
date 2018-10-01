@@ -97,10 +97,10 @@ impl<'a> CellVM<'a> {
             Instruction::Fwd => self.output_pointer.next(),
             Instruction::Back => self.output_pointer.prev(),
             Instruction::Inc => {
-                self.register = (self.register+ 1) & 0x0f;
+                self.register = (self.register + 1) & 0x0f;
             },
             Instruction::Dec => {
-                self.register = (self.register- 1) & 0x0f;
+                self.register = (self.register.wrapping_sub(1)) & 0x0f;
             },
             Instruction::ReadGenome => {
                 self.register = self.pond.cell(&self.cell).genome.get(&self.input_pointer);

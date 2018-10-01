@@ -139,7 +139,7 @@ impl fmt::Display for Statistics {
             } else {
                 self.instruction_executions[instruction] as f64 / self.cell_executions as f64
             };
-            write!(f, "{:04},", value)?;
+            write!(f, ",{:04}", value)?;
         }
         Ok(())
     }

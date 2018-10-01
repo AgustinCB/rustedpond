@@ -15,7 +15,7 @@ impl RandomGenerator {
         self.0[0] = y;
         x ^= x << 23;
         self.0[1] = x ^ y ^ (x >> 17) ^ (y >> 26);
-        self.0[1] + y
+        self.0[1].wrapping_add(y)
     }
 
     #[inline]
