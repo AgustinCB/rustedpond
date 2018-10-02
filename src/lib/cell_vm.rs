@@ -68,6 +68,7 @@ impl<'a> CellVM<'a> {
         self.statistics.cell_executions += 1;
         while self.pond.cell(&self.cell).energy > 0 && self.running {
             self.maybe_mutate();
+            self.pond.cell(&self.cell).energy -= 1;
             let instruction_byte = self.pond.cell(&self.cell).genome.get(&self.input_pointer);
             self.input_pointer.next();
             let instruction = Instruction::from(instruction_byte);
@@ -79,7 +80,6 @@ impl<'a> CellVM<'a> {
             } else if instruction == Instruction::Rep {
                 self.loop_stack_depth -= 1;
             }
-            self.pond.cell(&self.cell).energy -= 1;
         }
         self.maybe_reproduce();
     }
@@ -167,8 +167,12 @@ impl<'a> CellVM<'a> {
                     neighbor.generation = 0;
                 } else {
                     let cell_energy = self.pond.cell(&self.cell).energy;
-                    self.pond.cell(&self.cell).energy
-                        .wrapping_sub(cell_energy * FAILED_KILL_PENALTY);
+                    let penalty = cell_energy * FAILED_KILL_PENALTY;
+                    self.pond.cell(&self.cell).energy = if cell_energy <= penalty {
+                        0
+                    } else {
+                        cell_energy - penalty
+                    };
                 }
             },
             Instruction::Stop => {
@@ -200,7 +204,10 @@ impl<'a> CellVM<'a> {
 
     #[inline]
     pub fn maybe_reproduce(&mut self) {
-        if self.output.0[0] != 0xff &&
+        let neighbor_energy =
+            self.pond.get_neighbor(&self.cell, &self.facing).energy;
+        if neighbor_energy > 0 &&
+            self.output.0[0] != 0xff &&
             self.can_access_neighbor(InteractionType::Negative) {
             let parent = self.pond.cell(&self.cell).id.clone();
             let lineage = self.pond.cell(&self.cell).lineage.clone();

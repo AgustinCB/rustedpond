@@ -1,5 +1,5 @@
 use genome::Genome;
-use super::{INFLOW_RATE_BASE, RandomGenerator};
+use super::RandomGenerator;
 
 pub struct CellPosition(pub(crate) usize, pub(crate) usize);
 
@@ -47,7 +47,7 @@ impl Cell {
             parent_id: None,
             lineage: CellId(0),
             generation: 0,
-            energy: INFLOW_RATE_BASE,
+            energy: 0,
             genome: Genome::new(),
         }
     }

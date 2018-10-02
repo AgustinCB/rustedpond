@@ -29,7 +29,7 @@ impl CellPond {
         cell.parent_id = None;
         cell.lineage = new_id;
         cell.generation = 0;
-        cell.energy = INFLOW_RATE_BASE;
+        cell.energy += INFLOW_RATE_BASE;
         cell.genome = genome;
     }
 
